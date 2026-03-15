@@ -1,0 +1,17 @@
+{
+  "name": "Sacha's Soil",
+  "short_name": "Sacha's Soil",
+  "description": "Track your plants, watering schedules, and care journal",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FBEAF0",
+  "theme_color": "#993556",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%23993556'/%3E%3Ctext y='140' x='96' font-size='110' text-anchor='middle'%3E%F0%9F%8C%B8%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ]
+}
