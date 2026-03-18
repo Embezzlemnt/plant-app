@@ -1,4 +1,4 @@
-const CACHE = 'sachas-soil-v2';
+const CACHE = 'sachas-soil-v3';
 const ASSETS = ['/', '/index.html', '/manifest.json'];
 
 // ── INSTALL: cache app shell ──────────────────────────────────────────────────
