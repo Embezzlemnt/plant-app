@@ -1,4 +1,20 @@
 export default async function handler(req, res) {
+ if (req.method === 'OPTIONS') {
+   res.setHeader('Access-Control-Allow-Origin', '*');
+   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+   return res.status(200).end();
+ }
+ if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+ res.setHeader('Access-Control-Allow-Origin', '*');
+ res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+ const apiKey = process.env.GEMINI_API_KEY;
+ if (!apiKey) return res.status(500).json({ error: 'API key not configured' });
+ try {
+   const { system, messages, max_tokens, photo } = req.body;
+   // Deduplicate consecutive same-role messages try again!" }] });
+ }
+}export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
