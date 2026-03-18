@@ -1,11 +1,8 @@
 // Model cascade — tries each in order until one works
 const MODELS = [
-  'gemini-2.0-flash-001',
-  'gemini-2.0-flash-lite-001',
-  'gemini-1.5-flash',
-  'gemini-1.5-flash-002',
-  'gemini-1.5-pro',
-  'gemini-1.0-pro'
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
+  'gemini-1.5-flash'
 ];
 
 async function callGemini(apiKey, model, payload) {
