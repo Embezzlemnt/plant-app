@@ -1,8 +1,9 @@
 // Model cascade — tries each in order until one works
 const MODELS = [
   'gemini-2.0-flash',
+  'gemini-2.0-flash-001',
   'gemini-2.0-flash-lite',
-  'gemini-1.5-flash'
+  'gemini-2.0-flash-lite-001'
 ];
 
 async function callGemini(apiKey, model, payload) {
@@ -26,6 +27,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   const apiKey = process.env.GEMINI_API_KEY;
+  console.log('[chat] API key present:', !!process.env.GEMINI_API_KEY, 'starts with:', process.env.GEMINI_API_KEY?.slice(0,8));
   if (!apiKey) return res.status(500).json({ error: 'API key not configured' });
 
   try {
