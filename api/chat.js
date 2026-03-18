@@ -1,9 +1,8 @@
 // Model cascade — tries each in order until one works
 const MODELS = [
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-001',
-  'gemini-2.0-flash-lite',
-  'gemini-2.0-flash-lite-001'
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-pro'
 ];
 
 async function callGemini(apiKey, model, payload) {
@@ -27,7 +26,6 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   const apiKey = process.env.GEMINI_API_KEY;
-  console.log('[chat] API key present:', !!process.env.GEMINI_API_KEY, 'starts with:', process.env.GEMINI_API_KEY?.slice(0,8));
   if (!apiKey) return res.status(500).json({ error: 'API key not configured' });
 
   try {
@@ -77,7 +75,7 @@ export default async function handler(req, res) {
 
         // Skip model if not found or not supported
         if (status === 404 || (data.error?.status === 'NOT_FOUND')) {
-console.log(`Model ${model} not available:`, JSON.stringify(data.error));
+          console.log(`Model ${model} not available, trying next...`);
           continue;
         }
 
@@ -127,3 +125,6 @@ console.log(`Model ${model} not available:`, JSON.stringify(data.error));
     });
   }
 }
+
+
+
