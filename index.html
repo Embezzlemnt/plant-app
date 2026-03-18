@@ -8,9 +8,6 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
 <meta name="apple-mobile-web-app-title" content="Sacha's Soil"/>
 <link rel="manifest" href="manifest.json"/>
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
-<meta http-equiv="Pragma" content="no-cache"/>
-<meta http-equiv="Expires" content="0"/>
 <title>Sacha's Soil</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet"/>
@@ -472,14 +469,7 @@ input#photoInput{display:none;}
       <div class="ac-list" id="acList" style="display:none"></div>
     </div>
     <div class="fr"><label>type / category</label><input id="fType" placeholder="e.g. succulent, herb, flower"/></div>
-    <div class="fr">
-      <label>growing method</label>
-      <div style="display:flex;gap:8px;margin-top:4px;">
-        <div class="sopt sel" id="hydroSoilBtn" data-v="soil" onclick="pickHydro(false)" style="flex:1;text-align:center;">🪴 soil</div>
-        <div class="sopt" id="hydroWaterBtn" data-v="hydro" onclick="pickHydro(true)" style="flex:1;text-align:center;">🌊 hydroponic</div>
-      </div>
-    </div>
-    <div class="fr" id="waterEveryRow"><label id="waterEveryLabel">💧 water every</label>
+    <div class="fr"><label>water every</label>
       <select id="fWater">
         <option value="1">every day</option><option value="2">every 2 days</option>
         <option value="3" selected>every 3 days</option><option value="5">every 5 days</option>
@@ -727,7 +717,7 @@ function renderGarden(){
   document.getElementById('bannerCount').textContent=needs.length?needs.length+' need water':'';
   const chips=document.getElementById('waterChips');
   if(!needs.length)chips.innerHTML='<span class="em">all of Sacha\'s plants are happy today! 🌸</span>';
-  else chips.innerHTML=needs.map(p=>`<button class="chip ${daysUntil(p)<0?'over':'needs'}" onclick="quickWater(${p.id})">${p.hydroponic?'🌊':'💧'} ${p.name}</button>`).join('');
+  else chips.innerHTML=needs.map(p=>`<button class="chip ${daysUntil(p)<0?'over':'needs'}" onclick="quickWater(${p.id})">${p.name}</button>`).join('');
   renderStats();
   const searchEl=document.getElementById('plantSearch');
   const q=(searchEl?.value||'').toLowerCase().trim();
@@ -740,10 +730,7 @@ function renderGarden(){
     const streak=getStreak(p.id);
     const streakHtml=streak>0?`<span class="streak${streak>=3?' hot':''}">${streak>=3?'🔥':'💧'}${streak}d</span>`:'';
     const photoHtml=p.photo?`<img class="pcard-img" src="${p.photo}" alt="${p.name}"/>`:`<div class="pcard-img-placeholder">🌸</div>`;
-    const isHydro=p.hydroponic||false;
-    const waterLabel=isHydro?(low?(d<0?'top off overdue!':'top off today!'):'top off in '+d+' day'+(d===1?'':'s')):(low?(d<0?'overdue!':'water today!'):'in '+d+' day'+(d===1?'':'s'));
-    const waterIcon=isHydro?'🌊':'💧';
-    return`<div class="pcard" draggable="true" data-id="${p.id}" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)" ondragend="dragEnd(event)" onclick="openDetail(${p.id})">${photoHtml}<div class="pcard-body"><div class="pcard-meta"><p class="pn">${p.name}</p>${streakHtml}</div><p class="pt">${isHydro?'🌊 hydroponic'+(p.type?' · '+p.type:''):p.type||'plant'}</p><div class="bw"><div class="bar${low?' low':''}" style="width:${low?100:pct}%"></div></div><p class="ps${low?' soon':''}">${waterIcon} ${waterLabel}</p></div></div>`;
+    return`<div class="pcard" draggable="true" data-id="${p.id}" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)" ondragend="dragEnd(event)" onclick="openDetail(${p.id})">${photoHtml}<div class="pcard-body"><div class="pcard-meta"><p class="pn">${p.name}</p>${streakHtml}</div><p class="pt">${p.type||'plant'}</p><div class="bw"><div class="bar${low?' low':''}" style="width:${low?100:pct}%"></div></div><p class="ps${low?' soon':''}">${low?(d<0?'overdue!':'water today!'):'in '+d+' day'+(d===1?'':'s')}</p></div></div>`;
   }).join('');
 }
 
@@ -814,109 +801,11 @@ function handlePhoto(input, onReady){
       currentPhoto=canvas.toDataURL('image/jpeg',0.75);
       const pu=document.getElementById('photoUpload');
       let ex=pu.querySelector('img.preview-img');
-      if(!ex){ex=document.createElement('img');ex.className='preview-img';ex.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--pl);';pu.appendChild(ex);}
+      if(!ex){ex=document.createElement('img');ex.className='preview-img';ex.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';pu.appendChild(ex);}
       ex.src=currentPhoto;pu.classList.add('has-img');
-      // Thumbnail strip below upload area
-      let strip=document.getElementById('photoThumbStrip');
-      if(!strip){
-        strip=document.createElement('div');strip.id='photoThumbStrip';
-        strip.style.cssText='display:flex;align-items:center;gap:8px;margin-top:7px;padding:7px 10px;background:var(--pl);border:1px solid var(--pb);border-radius:10px;';
-        const photoFr=pu.closest('.fr');if(photoFr)photoFr.appendChild(strip);
-      }
-      strip.innerHTML='<img src="'+currentPhoto+'" style="width:48px;height:48px;border-radius:8px;object-fit:cover;flex-shrink:0;border:1.5px solid var(--pb)"/><div id="thumbStatus" style="font-size:11px;color:var(--pm);font-weight:700;">photo ready — identifying plant... 🌿</div>';
-      strip.style.display='flex';
-      if(onReady){onReady();}else if(!editId){identifyPlantFromPhoto();}
+      if(onReady)onReady();
     };img.src=e.target.result;
   };reader.readAsDataURL(input.files[0]);
-}
-
-// ── PLANT IDENTIFICATION ───────────────────────────────────────────────────────
-function parseApiResponse(data){
-  // chat.js always normalizes to Anthropic format: { content: [{type:'text', text:'...'}] }
-  if(data.content&&Array.isArray(data.content)){
-    const t=data.content.filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
-    if(t)return t;
-  }
-  if(typeof data.error==='string')return data.error;
-  return'';
-}
-
-function setIdentifyStatus(msg, type){
-  // type: 'loading' | 'success' | 'error' | 'clear'
-  let el=document.getElementById('identifyStatus');
-  if(!el){
-    el=document.createElement('div');el.id='identifyStatus';
-    el.style.cssText='font-size:12px;margin-top:6px;padding:5px 10px;border-radius:8px;display:none;';
-    const nameField=document.getElementById('nameField');
-    if(nameField)nameField.appendChild(el);
-  }
-  if(type==='clear'){el.style.display='none';el.textContent='';return;}
-  const styles={
-    loading:'background:var(--pl);color:var(--pm);border:1px solid var(--pb);',
-    success:'background:var(--gll);color:var(--gl);border:1px solid var(--glb);',
-    error:'background:var(--rl);color:var(--rd);border:1px solid var(--rb);'
-  };
-  el.style.cssText='font-size:12px;margin-top:6px;padding:5px 10px;border-radius:8px;display:block;'+( styles[type]||'');
-  el.innerHTML=msg;
-}
-
-async function identifyPlantFromPhoto(){
-  if(!currentPhoto)return;
-  const nameEl=document.getElementById('fName');
-  const thumbStatus=document.getElementById('thumbStatus');
-  nameEl.disabled=true;
-  if(thumbStatus)thumbStatus.innerHTML='identifying plant... 🌿';
-  setIdentifyStatus('identifying plant... 🌿','loading');
-  try{
-    console.log('[identify] Sending photo to /api/identify, photo length:',currentPhoto?.length);
-    const res=await fetch('/api/identify',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({photo:currentPhoto})
-    });
-    const data=await res.json();
-    console.log('[identify] Response status:',res.status,'data:',JSON.stringify(data).slice(0,200));
-    if(!res.ok){
-      console.error('[identify] Server error:',res.status,data);
-      throw new Error(data.error||'server error '+res.status);
-    }
-    if(!data.name){
-      if(thumbStatus)thumbStatus.innerHTML="couldn't identify 🌿 type name below";
-      setIdentifyStatus("couldn't identify — type the plant name below 🌿",'error');
-      nameEl.disabled=false;nameEl.focus();
-      return;
-    }
-    // ── Autofill all fields consistently ──────────────────────────────────────
-    nameEl.value=data.name;
-    setTimeout(()=>acSearch(data.name),50);
-    const typeEl=document.getElementById('fType');
-    if(typeEl&&!typeEl.value&&data.type)typeEl.value=data.type;
-    if(data.waterEvery){
-      const wEl=document.getElementById('fWater');
-      if(wEl){
-        const opts=[...wEl.options].map(o=>parseInt(o.value));
-        const closest=opts.reduce((a,b)=>Math.abs(b-data.waterEvery)<Math.abs(a-data.waterEvery)?b:a);
-        wEl.value=String(closest);
-      }
-    }
-    const validLights=['low light','indirect','bright indirect','direct window'];
-    if(data.light&&validLights.includes(data.light)){
-      selSun=data.light;
-      document.querySelectorAll('.sopt').forEach(x=>x.classList.toggle('sel',x.dataset.v===data.light));
-    }
-    const notesEl=document.getElementById('fNotes');
-    if(notesEl&&!notesEl.value&&data.notes)notesEl.value=data.notes;
-    if(thumbStatus)thumbStatus.innerHTML='✓ identified as <strong>'+data.name+'</strong>';
-    setIdentifyStatus('✓ identified as <strong>'+data.name+'</strong> — feel free to edit','success');
-    console.log('[identify] Autofill complete:',data.name);
-  }catch(e){
-    console.error('[identify] Failed:',e.message);
-    if(thumbStatus)thumbStatus.innerHTML='identification failed — <span style="text-decoration:underline;cursor:pointer" onclick="identifyPlantFromPhoto()">retry</span>';
-    setIdentifyStatus('identification failed — <span style="text-decoration:underline;cursor:pointer" onclick="identifyPlantFromPhoto()">retry</span> or type manually','error');
-  }finally{
-    nameEl.disabled=false;
-    nameEl.focus();
-  }
 }
 
 // ── AUTOCOMPLETE ──────────────────────────────────────────────────────────────
@@ -947,21 +836,6 @@ function acKey(e){
 }
 document.addEventListener('click',e=>{if(!e.target.closest('#nameField'))document.getElementById('acList').style.display='none';});
 
-// ── HYDROPONIC ────────────────────────────────────────────────────────────────
-let selHydro=false;
-function pickHydro(isHydro){
-  selHydro=isHydro;
-  updateHydroUI();
-}
-function updateHydroUI(){
-  const soilBtn=document.getElementById('hydroSoilBtn');
-  const waterBtn=document.getElementById('hydroWaterBtn');
-  const label=document.getElementById('waterEveryLabel');
-  if(soilBtn)soilBtn.classList.toggle('sel',!selHydro);
-  if(waterBtn)waterBtn.classList.toggle('sel',selHydro);
-  if(label)label.innerHTML=selHydro?'🌊 top off / check water every':'💧 water every';
-}
-
 // ── ADD/EDIT PLANT ─────────────────────────────────────────────────────────────
 function pickSun(el){selSun=el.dataset.v;document.querySelectorAll('.sopt').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');}
 function openAddPlant(){
@@ -975,23 +849,14 @@ function openAddPlant(){
   const pu=document.getElementById('photoUpload');pu.classList.remove('has-img');
   const prev=pu.querySelector('img.preview-img');if(prev)prev.remove();
   document.getElementById('photoInput').value='';
-  setIdentifyStatus('','clear');
-  const strip=document.getElementById('photoThumbStrip');if(strip)strip.style.display='none';
-  selHydro=false;
-  // updateHydroUI runs after modal is in DOM
-  setTimeout(()=>updateHydroUI(),10);
   buildEmojiPicker();
   document.getElementById('plantModal').classList.add('open');
 }
-function closePlantModal(){
-  document.getElementById('plantModal').classList.remove('open');
-  setIdentifyStatus('','clear');
-  const strip=document.getElementById('photoThumbStrip');if(strip)strip.style.display='none';
-}
+function closePlantModal(){document.getElementById('plantModal').classList.remove('open');}
 function savePlant(){
   const name=document.getElementById('fName').value.trim();if(!name){document.getElementById('fName').focus();return;}
   const existing=editId?plants.find(p=>p.id===editId):null;
-  const plant={id:editId||Date.now(),name,type:document.getElementById('fType').value.trim(),hydroponic:selHydro,waterEvery:parseInt(document.getElementById('fWater').value),fertilizeEvery:parseInt(document.getElementById('fFertilize').value)||0,repotEvery:parseInt(document.getElementById('fRepot').value)||0,sun:selSun,notes:document.getElementById('fNotes').value.trim(),lastWatered:existing?existing.lastWatered:today().getTime(),lastFertilized:existing?existing.lastFertilized:null,lastRepotted:existing?existing.lastRepotted:null,photo:currentPhoto||(existing?existing.photo:null),emoji:currentPhoto?null:selEmoji};
+  const plant={id:editId||Date.now(),name,type:document.getElementById('fType').value.trim(),waterEvery:parseInt(document.getElementById('fWater').value),fertilizeEvery:parseInt(document.getElementById('fFertilize').value)||0,repotEvery:parseInt(document.getElementById('fRepot').value)||0,sun:selSun,notes:document.getElementById('fNotes').value.trim(),lastWatered:existing?existing.lastWatered:today().getTime(),lastFertilized:existing?existing.lastFertilized:null,lastRepotted:existing?existing.lastRepotted:null,photo:currentPhoto||(existing?existing.photo:null),emoji:currentPhoto?null:selEmoji};
   if(editId)plants=plants.map(p=>p.id===editId?plant:p);else plants.push(plant);
   saveP();closePlantModal();closeDetail();renderGarden();
 }
@@ -1003,24 +868,20 @@ function openDetail(id){
   document.getElementById('dName').textContent=p.name;
   document.getElementById('dType').textContent=p.type||'plant';
   document.getElementById('dNotes').innerHTML=p.notes?`<div class="dno">${p.notes}</div>`:'';
-  const isHydroDetail=p.hydroponic||false;
-  document.getElementById('dSched').textContent=(isHydroDetail?'🌊 top off ':'💧 water ')+(SCHED[p.waterEvery]||`every ${p.waterEvery} days`);
+  document.getElementById('dSched').textContent=SCHED[p.waterEvery]||`every ${p.waterEvery} days`;
   document.getElementById('dSun').textContent=p.sun||'medium';
   document.getElementById('dLast').textContent=p.lastWatered?relDate(p.lastWatered):'not yet';
   const next=p.lastWatered?addDays(p.lastWatered,p.waterEvery):today();
   document.getElementById('dNext').textContent=relDate(next.getTime());
   const streak=getStreak(id);
-  document.getElementById('dStreak').textContent=streak>0?(streak>=3?`🔥 ${streak} days on fire!`:(isHydroDetail?`🌊 ${streak} days`:`💧 ${streak} days`)):' just getting started';
-  // Update water button label for hydroponic
-  const waterBtn=document.querySelector('#detailModal .bw3');
-  if(waterBtn)waterBtn.textContent=isHydroDetail?'topped off today! 🌊':'watered today! 💧';
+  document.getElementById('dStreak').textContent=streak>0?(streak>=3?`🔥 ${streak} days on fire!`:`💧 ${streak} days`):' just getting started';
   document.getElementById('detailModal').classList.add('open');
 }
 function closeDetail(){document.getElementById('detailModal').classList.remove('open');}
 function waterFromDetail(){quickWater(detailId);closeDetail();}
 function editFromDetail(){
   const p=plants.find(x=>x.id===detailId);if(!p)return;
-  editId=detailId;selSun=p.sun||'indirect';currentPhoto=p.photo||null;selEmoji=p.emoji||'🌸';selHydro=p.hydroponic||false;
+  editId=detailId;selSun=p.sun||'indirect';currentPhoto=p.photo||null;selEmoji=p.emoji||'🌸';
   document.getElementById('pmTitle').textContent='edit plant';
   document.getElementById('fName').value=p.name;document.getElementById('fType').value=p.type||'';
   document.getElementById('fWater').value=p.waterEvery;
@@ -1029,7 +890,6 @@ function editFromDetail(){
   document.getElementById('fNotes').value=p.notes||'';
   document.getElementById('acList').style.display='none';
   document.querySelectorAll('.sopt').forEach(x=>x.classList.toggle('sel',x.dataset.v===selSun));
-  updateHydroUI();
   const pu=document.getElementById('photoUpload');
   if(p.photo){let prev=pu.querySelector('img.preview-img');if(!prev){prev=document.createElement('img');prev.className='preview-img';prev.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';pu.appendChild(prev);}prev.src=p.photo;pu.classList.add('has-img');}
   else{pu.classList.remove('has-img');const prev=pu.querySelector('img.preview-img');if(prev)prev.remove();}
@@ -1316,7 +1176,6 @@ function clearChatPhoto(){
 }
 
 // ── AI CHAT ───────────────────────────────────────────────────────────────────
-let chatPending=false; // request lock — prevents double sends
 function addChatMsg(role,text){
   const wrap=document.getElementById('chatWrap');
   const div=document.createElement('div');div.className='chat-msg '+role;div.textContent=text;
@@ -1326,12 +1185,8 @@ function addChatMsg(role,text){
   return div;
 }
 async function sendChat(){
-  if(chatPending)return; // block concurrent requests
   const input=document.getElementById('chatInput');const text=input.value.trim();
   if(!text&&!chatPhoto)return;
-  chatPending=true;
-  const sendBtn=document.querySelector('.chat-send');
-  if(sendBtn){sendBtn.disabled=true;sendBtn.style.opacity='0.5';}
   const welcome=document.getElementById('chatWelcome');if(welcome)welcome.style.display='none';
   const displayText=text||(chatPhoto?'what plant is this?':'');
   input.value='';
@@ -1340,48 +1195,24 @@ async function sendChat(){
   const photoToSend=chatPhoto;
   clearChatPhoto();
   const thinking=addChatMsg('thinking','thinking... 🌿');
-  // Retry up to 2 times on network errors
-  let lastErr=null;
-  for(let attempt=0;attempt<2;attempt++){
-    try{
-      const plantContext=plants.length?'Sacha currently grows: '+plants.map(p=>p.name+(p.type?' ('+p.type+')':'')).join(', ')+'. ':'';
-      const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-        max_tokens:1000,
-        photo:photoToSend||null,
-        system:`You are a warm, knowledgeable plant care advisor for an app called "Sacha's Soil" belonging to a woman named Sacha. ${plantContext}Sacha lives in Tobyhanna, Pennsylvania (Pocono Mountains region, USDA hardiness zone 5b-6a). Factor in her local climate when relevant — cold winters, humid summers, first frost typically mid-October, last frost typically mid-May. Give friendly, practical advice about plant care, watering, sunlight, soil, pests, propagation, seasonal planting, and anything plant-related. Keep answers conversational and encouraging. Use the occasional plant emoji. Never give overly long answers — be helpful and concise.`,
-        messages:chatHistory
-      })});
-      const data=await res.json();
-      if(res.status===429){
-        thinking.remove();
-        addChatMsg('ai','too many requests — wait a moment and try again 🌱');
-        lastErr=null;break;
-      }
-      if(!res.ok){
-        lastErr=data.error||'server error '+res.status;
-        console.error('[chat] Server error attempt',attempt+1,':',lastErr);
-        if(attempt<1)continue; // retry once on server error
-        break;
-      }
-      const reply=parseApiResponse(data)||'Sorry, try again!';
-      thinking.remove();addChatMsg('ai',reply);
-      chatHistory.push({role:'assistant',content:reply});
-      if(chatHistory.length>20)chatHistory=chatHistory.slice(-20);
-      lastErr=null;break;
-    }catch(e){
-      lastErr=e.message;
-      console.error('[chat] Fetch error attempt',attempt+1,':',e.message);
-      if(attempt<1)await new Promise(r=>setTimeout(r,1000)); // wait 1s before retry
-    }
-  }
-  if(lastErr){
+  try{
+    const plantContext=plants.length?'Sacha currently grows: '+plants.map(p=>p.name+(p.type?' ('+p.type+')':'')).join(', ')+'. ':'';
+    const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      model:'gemini-2.0-flash-lite',
+      max_tokens:1000,
+      photo:photoToSend||null,
+      system:`You are a warm, knowledgeable plant care advisor for an app called "Sacha's Soil" belonging to a woman named Sacha. ${plantContext}Sacha lives in Tobyhanna, Pennsylvania (Pocono Mountains region, USDA hardiness zone 5b-6a). Factor in her local climate when relevant — cold winters, humid summers, first frost typically mid-October, last frost typically mid-May. Give friendly, practical advice about plant care, watering, sunlight, soil, pests, propagation, seasonal planting, and anything plant-related. Keep answers conversational and encouraging. Use the occasional plant emoji. Never give overly long answers — be helpful and concise.`,
+      messages:chatHistory
+    })});
+    if(!res.ok){throw new Error('status '+res.status);}
+    const data=await res.json();
+    const reply=data.content?data.content.filter(b=>b.type==='text').map(b=>b.text).join('\n').trim()||'Sorry, try again!':data.error||'Sorry, try again!';
+    thinking.remove();addChatMsg('ai',reply);chatHistory.push({role:'assistant',content:reply});
+    if(chatHistory.length>20)chatHistory=chatHistory.slice(-20);
+  }catch(e){
     thinking.remove();
-    addChatMsg('ai','couldn\'t connect right now 🌱 tap the send button to try again');
-    // Put the message back so they don't lose it
-    input.value=displayText==='what plant is this?'?'':displayText;
+    addChatMsg('ai','couldn\'t connect right now 🌱 check that the Gemini API key is added in Vercel settings — ask Lorenzo if you need help!');
   }
-  chatPending=false;
-  if(sendBtn){sendBtn.disabled=false;sendBtn.style.opacity='';}
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
