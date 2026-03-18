@@ -77,7 +77,7 @@ export default async function handler(req, res) {
 
         // Skip model if not found or not supported
         if (status === 404 || (data.error?.status === 'NOT_FOUND')) {
-          console.log(`Model ${model} not available, trying next...`);
+console.log(`Model ${model} not available:`, JSON.stringify(data.error));
           continue;
         }
 
