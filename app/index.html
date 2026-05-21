@@ -679,9 +679,10 @@ input#photoInput{display:none;}
     <div class="settings-section">
       <span class="settings-label">your city</span>
       <div style="display:flex;gap:8px;">
-        <input class="ob-input" id="sCity" style="text-align:left;margin:0;flex:1" placeholder="city, state or country"/>
+        <input class="ob-input" id="sCity" list="settingsLocationSuggestions" style="text-align:left;margin:0;flex:1" placeholder="city or ZIP code" oninput="queueLocationSuggestions(this,'settingsLocationSuggestions')" onchange="applyLocationSuggestion(this)"/>
         <button class="ob-loc-btn" id="settingsLocBtn" style="width:44px;padding:11px 14px;margin:0" onclick="detectLocationSettings()">📍</button>
       </div>
+      <datalist id="settingsLocationSuggestions"></datalist>
       <div class="ob-loc-status" id="sLocStatus"></div>
     </div>
     <div class="modal-btns">
@@ -806,7 +807,8 @@ function renderObScreen(){
      <div class="ob-title">where are you?</div>
      <div class="ob-sub">used for local weather and planting tips. totally optional.</div>
      <button class="ob-loc-btn" id="obLocBtn" onclick="detectLocationOb()">📍 use my location</button>
-     <input class="ob-input" id="obCity" placeholder="or type your city..." maxlength="60" oninput="obProfile.city=this.value.trim()"/>
+     <input class="ob-input" id="obCity" list="onboardLocationSuggestions" placeholder="city or ZIP code" maxlength="80" oninput="obProfile.city=this.value.trim();queueLocationSuggestions(this,'onboardLocationSuggestions')" onchange="applyLocationSuggestion(this)"/>
+     <datalist id="onboardLocationSuggestions"></datalist>
      <div class="ob-loc-status" id="obLocStatus"></div>
      <button class="ob-btn" onclick="obFinish()">let's grow! 🌿</button>
      <span class="ob-skip" onclick="obFinish()">skip location</span>`
@@ -916,6 +918,52 @@ async function detectLocationSettings(){
     status.textContent='couldn\'t detect — type your city';
   }finally{
     if(btn){btn.classList.remove('is-loading');btn.disabled=false;btn.textContent='📍';}
+  }
+}
+const locationSuggestionState={};
+function formatLocationSuggestion(place){
+  return [place.name,place.admin1,place.country].filter(Boolean).join(', ');
+}
+function queueLocationSuggestions(input,listId){
+  delete input.dataset.lat;
+  delete input.dataset.lon;
+  const query=input.value.trim();
+  clearTimeout(input._locationSuggestTimer);
+  input._locationSuggestTimer=setTimeout(()=>loadLocationSuggestions(input,listId,query),220);
+}
+async function loadLocationSuggestions(input,listId,query){
+  const list=document.getElementById(listId);
+  if(!list)return;
+  if(query.length<2){list.innerHTML='';return;}
+  try{
+    const r=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&language=en&format=json`);
+    const d=await r.json();
+    const places=(d.results||[]).filter(place=>place.name&&Number.isFinite(Number(place.latitude))&&Number.isFinite(Number(place.longitude)));
+    locationSuggestionState[input.id]={};
+    list.innerHTML='';
+    places.forEach(place=>{
+      const label=formatLocationSuggestion(place);
+      locationSuggestionState[input.id][label]=place;
+      const option=document.createElement('option');
+      option.value=label;
+      list.appendChild(option);
+    });
+  }catch{
+    list.innerHTML='';
+  }
+}
+function applyLocationSuggestion(input){
+  const place=locationSuggestionState[input.id]?.[input.value.trim()];
+  if(!place)return;
+  input.dataset.lat=place.latitude;
+  input.dataset.lon=place.longitude;
+  if(input.id==='obCity'){
+    obProfile.city=input.value.trim();
+    obProfile.lat=place.latitude;
+    obProfile.lon=place.longitude;
+    obLocFound=true;
+    const status=document.getElementById('obLocStatus');
+    if(status)status.textContent=`📍 ${input.value.trim()}`;
   }
 }
 async function saveProfileSettings(){
