@@ -1,6 +1,31 @@
 {
   "name": "Sacha's Soil",
   "short_name": "Sacha's Soil",
+  "description": "Free plant care app for watering, fertilizing, reminders, and growth journals",
+  "start_url": "/app/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FBEAF0",
+  "theme_color": "#993556",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
+{
+  "name": "Sacha's Soil",
+  "short_name": "Sacha's Soil",
   "description": "Track your plants, watering schedules, and care journal",
   "start_url": "/",
   "scope": "/",
