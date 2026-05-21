@@ -1,4 +1,4 @@
-const CACHE = 'sachas-soil-v5';
+const CACHE = 'plant-care-v6';
 const ASSETS = ['/', '/index.html', '/app/', '/app/index.html', '/manifest.json', '/privacy.html'];
 
 // ── INSTALL: cache app shell ──────────────────────────────────────────────────
@@ -29,7 +29,7 @@ self.addEventListener('fetch', e => {
 self.addEventListener('push', e => {
   const data = e.data ? e.data.json() : {};
   e.waitUntil(
-    self.registration.showNotification(data.title || "Sacha's Soil 🌸", {
+    self.registration.showNotification(data.title || 'Plant Care', {
       body: data.body || 'Time to check on your plants!',
       icon: '/icon-192.png',
       badge: '/icon-192.png',
@@ -132,7 +132,7 @@ async function checkWateringReminders() {
 function getStoredPlantData() {
   return new Promise(resolve => {
     try {
-      const req = indexedDB.open('sachas-soil-bridge', 1);
+      const req = indexedDB.open('plant-care-bridge', 1);
       req.onupgradeneeded = e => {
         e.target.result.createObjectStore('kv', { keyPath: 'key' });
       };
@@ -173,7 +173,7 @@ self.addEventListener('message', e => {
 
 async function syncToIDB(payload) {
   return new Promise(resolve => {
-    const req = indexedDB.open('sachas-soil-bridge', 1);
+    const req = indexedDB.open('plant-care-bridge', 1);
     req.onupgradeneeded = e => {
       e.target.result.createObjectStore('kv', { keyPath: 'key' });
     };

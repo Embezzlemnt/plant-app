@@ -19,7 +19,10 @@ function dedupeConsecutive(messages = []) {
     const content = typeof msg.content === 'string' ? msg.content.trim() : '';
     if (!content) continue;
     const prev = out[out.length - 1];
-    if (prev && prev.role === msg.role && prev.content === content) continue;
+    if (prev && prev.role === msg.role) {
+      if (prev.content !== content) prev.content += `\n${content}`;
+      continue;
+    }
     out.push({ role: msg.role, content });
   }
   return out;
@@ -43,7 +46,8 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 200, textContent('Use POST to ask a plant question.'));
 
   try {
-    const { system = '', messages = [], max_tokens = 1000, photo = null } = req.body || {};
+    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
+    const { system = '', messages = [], max_tokens = 1000, photo = null } = body;
     const key = process.env.GEMINI_API_KEY;
     if (!key) return send(res, 200, textContent('Plant advisor is not configured yet.'));
 
