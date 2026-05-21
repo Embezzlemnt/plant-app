@@ -1,13 +1,29 @@
+function allowSameOrigin(req, res) {
+  const origin = req.headers?.origin;
+  const host = req.headers?.host;
+  if (!origin || !host) return;
+  try {
+    if (new URL(origin).host === host) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+    }
+  } catch {}
+}
+
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    allowSameOrigin(req, res);
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     return res.status(200).end();
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  allowSameOrigin(req, res);
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (process.env.ENABLE_PLANT_IDENTIFY !== '1') {
+    return res.status(404).json({ error: 'Plant identification is disabled', name: null });
+  }
 
   const apiKey = process.env.PLANTID_API_KEY;
   if (!apiKey) {
