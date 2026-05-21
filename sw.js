@@ -1,5 +1,5 @@
-const CACHE = 'sachas-soil-v3';
-const ASSETS = ['/', '/index.html', '/manifest.json'];
+const CACHE = 'sachas-soil-v5';
+const ASSETS = ['/', '/index.html', '/app/', '/app/index.html', '/manifest.json', '/privacy.html'];
 
 // ── INSTALL: cache app shell ──────────────────────────────────────────────────
 self.addEventListener('install', e => {
@@ -95,25 +95,35 @@ async function checkWateringReminders() {
     return Math.round((next - today) / 86400000);
   }
 
-  const needsWater = plants.filter(p => daysUntil(p) <= 0);
-  const tomorrow = plants.filter(p => daysUntil(p) === 1);
-
-  if (settings.daily && needsWater.length) {
-    await self.registration.showNotification("time to water! 💧", {
-      body: needsWater.map(p => p.name).join(', ') + ' need water today',
-      icon: '/icon-192.png',
-      tag: 'water-today',
-      renotify: true,
-      actions: [{ action: 'open', title: 'open app' }]
-    });
+  function daysSinceCare(p, type) {
+    const last = type === 'fertilize' ? p.lastFertilized : p.lastRepotted;
+    if (!last) return 999;
+    return Math.floor((Date.now() - last) / 86400000);
   }
 
-  if (settings.ahead && tomorrow.length) {
-    await self.registration.showNotification("watering tomorrow 🌿", {
-      body: tomorrow.map(p => p.name).join(', ') + ' will need water tomorrow',
+  const needsWater = plants.filter(p => daysUntil(p) <= 0);
+  const tomorrow = plants.filter(p => daysUntil(p) === 1);
+  const fertDue = plants.filter(p => p.fertilizeEvery > 0 && p.lastFertilized && daysSinceCare(p, 'fertilize') >= p.fertilizeEvery);
+  const repotDue = plants.filter(p => p.repotEvery > 0 && p.lastRepotted && daysSinceCare(p, 'repot') >= p.repotEvery);
+  let notification = null;
+
+  if (settings.daily && needsWater.length) {
+    notification = { title: 'time to water!', body: needsWater.map(p => p.name).join(', ') + ' need water today', tag: 'care-today' };
+  } else if (fertDue.length) {
+    notification = { title: 'time to fertilize!', body: fertDue.map(p => p.name).join(', ') + ' are due for fertilizer', tag: 'care-today' };
+  } else if (repotDue.length) {
+    notification = { title: 'repotting time!', body: repotDue.map(p => p.name).join(', ') + ' may need a new pot', tag: 'care-today' };
+  } else if (settings.ahead && tomorrow.length) {
+    notification = { title: 'watering tomorrow', body: tomorrow.map(p => p.name).join(', ') + ' will need water tomorrow', tag: 'care-tomorrow' };
+  }
+
+  if (notification) {
+    await self.registration.showNotification(notification.title, {
+      body: notification.body,
       icon: '/icon-192.png',
-      tag: 'water-tomorrow',
-      renotify: true
+      tag: notification.tag,
+      renotify: true,
+      actions: [{ action: 'open', title: 'open app' }]
     });
   }
 }
