@@ -1,4 +1,4 @@
-const CACHE = 'plant-care-v6';
+const CACHE = 'plant-care-v7';
 const ASSETS = ['/', '/index.html', '/app/', '/app/index.html', '/manifest.json', '/privacy.html'];
 
 // ── INSTALL: cache app shell ──────────────────────────────────────────────────

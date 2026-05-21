@@ -1,8 +1,23 @@
-const MODEL = 'gemini-2.0-flash-lite';
+const MODEL = 'gemini-2.5-flash-lite';
+const MAX_MESSAGES = 20;
+const MAX_TEXT_CHARS = 6000;
+const MAX_PHOTO_CHARS = 7_200_000;
 
-function send(res, status, data) {
+function allowSameOrigin(req, res) {
+  const origin = req.headers?.origin;
+  const host = req.headers?.host;
+  if (!origin || !host) return;
+  try {
+    if (new URL(origin).host === host) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+    }
+  } catch {}
+}
+
+function send(req, res, status, data) {
   res.status(status).setHeader('Content-Type', 'application/json');
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  allowSameOrigin(req, res);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.end(JSON.stringify(data));
@@ -14,9 +29,10 @@ function textContent(text) {
 
 function dedupeConsecutive(messages = []) {
   const out = [];
-  for (const msg of messages) {
+  const recentMessages = Array.isArray(messages) ? messages.slice(-MAX_MESSAGES) : [];
+  for (const msg of recentMessages) {
     if (!msg || !msg.role) continue;
-    const content = typeof msg.content === 'string' ? msg.content.trim() : '';
+    const content = typeof msg.content === 'string' ? msg.content.trim().slice(0, MAX_TEXT_CHARS) : '';
     if (!content) continue;
     const prev = out[out.length - 1];
     if (prev && prev.role === msg.role) {
@@ -42,18 +58,22 @@ function photoPart(photo) {
 }
 
 export default async function handler(req, res) {
-  if (req.method === 'OPTIONS') return send(res, 200, {});
-  if (req.method !== 'POST') return send(res, 200, textContent('Use POST to ask a plant question.'));
+  if (req.method === 'OPTIONS') return send(req, res, 200, {});
+  if (req.method !== 'POST') return send(req, res, 200, textContent('Use POST to ask a plant question.'));
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
     const { system = '', messages = [], max_tokens = 1000, photo = null } = body;
+    const systemText = typeof system === 'string' ? system.slice(0, MAX_TEXT_CHARS) : '';
     const key = process.env.GEMINI_API_KEY;
-    if (!key) return send(res, 200, textContent('Plant advisor is not configured yet.'));
+    if (!key) return send(req, res, 200, textContent('Plant advisor is not configured yet.'));
+    if (typeof photo === 'string' && photo.length > MAX_PHOTO_CHARS) {
+      return send(req, res, 200, textContent('That photo is too large. Try a smaller image.'));
+    }
 
     const cleanMessages = dedupeConsecutive(messages);
     if (!cleanMessages.length && !photo) {
-      return send(res, 200, textContent('Ask me a plant question first.'));
+      return send(req, res, 200, textContent('Ask me a plant question first.'));
     }
 
     if (photo) {
@@ -77,24 +97,29 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        systemInstruction: system ? { parts: [{ text: system }] } : undefined,
+        systemInstruction: systemText ? { parts: [{ text: systemText }] } : undefined,
         contents,
         generationConfig: { maxOutputTokens: Math.min(Number(max_tokens) || 1000, 1200) }
       })
     });
 
     if (response.status === 429) {
-      return send(res, 200, textContent('too many requests — try again in a moment 🌱'));
+      return send(req, res, 200, textContent('too many requests — try again in a moment 🌱'));
     }
 
     if (!response.ok) {
-      return send(res, 200, textContent('Plant advisor is resting for a moment. Try again soon 🌱'));
+      const upstream = await response.json().catch(() => ({}));
+      const upstreamText = String(upstream?.error?.message || '').toLowerCase();
+      if (upstreamText.includes('leaked') || upstreamText.includes('api key') || response.status === 401 || response.status === 403) {
+        return send(req, res, 200, textContent('Plant advisor needs a fresh server key before it can answer again.'));
+      }
+      return send(req, res, 200, textContent('Plant advisor is resting for a moment. Try again soon 🌱'));
     }
 
     const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('\n').trim();
-    return send(res, 200, textContent(text || 'I could not read that clearly. Try asking again with a little more detail.'));
+    return send(req, res, 200, textContent(text || 'I could not read that clearly. Try asking again with a little more detail.'));
   } catch {
-    return send(res, 200, textContent('Plant advisor had a hiccup. Try again in a moment 🌿'));
+    return send(req, res, 200, textContent('Plant advisor had a hiccup. Try again in a moment 🌿'));
   }
 }
