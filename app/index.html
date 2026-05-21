@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
 <meta name="apple-mobile-web-app-title" content="My Garden"/>
+<meta name="posthog-key" content=""/>
 <link rel="manifest" href="/manifest.json"/>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
 <meta http-equiv="Pragma" content="no-cache"/>
@@ -27,6 +28,8 @@
   --card:#fff;--shadow:rgba(153,53,86,0.08);
 }
 body{font-family:'Nunito',sans-serif;background:var(--bgs);color:var(--tx);line-height:1.6;min-height:100svh;}
+body[data-theme="sage"]{--pd:#34533b;--pm:#4f7a57;--pl:#edf5ea;--pb:#c6ddbd;--pm2:#6e9473;--pl2:#f5faf2;--bgs:#f7faf5;--br:#dbe8d7;--shadow:rgba(52,83,59,0.08);}
+body[data-theme="minimal"]{--pd:#202124;--pm:#44484d;--pl:#f3f4f5;--pb:#d7dadd;--pm2:#666b71;--pl2:#fafafa;--bgs:#f7f7f7;--br:#e4e5e7;--shadow:rgba(32,33,36,0.08);}
 button{touch-action:manipulation;}
 button:active{transform:scale(0.97);}
 .app{max-width:480px;margin:0 auto;background:var(--bg);min-height:100svh;position:relative;}
@@ -340,6 +343,21 @@ input#photoInput{display:none;}
 .settings-label{font-size:11px;font-weight:700;color:var(--txm);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;display:block;}
 .settings-row{display:flex;align-items:center;gap:8px;}
 .settings-row .fr{flex:1;margin-bottom:0;}
+.utility-row{display:flex;gap:8px;align-items:center;margin-bottom:14px;}
+.utility-btn{min-height:44px;border:1px solid var(--pb);border-radius:12px;background:var(--pl);color:var(--pm);font:700 13px 'Nunito',sans-serif;padding:10px 12px;cursor:pointer;touch-action:manipulation;}
+.utility-btn:active{transform:scale(.97);}
+.theme-picks{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 4px;}
+.theme-pick{min-height:44px;border:1.5px solid var(--br);border-radius:12px;background:var(--bgs);color:var(--txm);font:700 13px 'Nunito',sans-serif;padding:9px 7px;cursor:pointer;touch-action:manipulation;}
+.theme-pick.sel{background:var(--pl);border-color:var(--pm);color:var(--pd);}
+.ai-disclosure{font-size:12px;line-height:1.5;color:var(--txm);padding:0 14px 10px;background:var(--bg);}
+.ai-disclosure a,.privacy-link{color:var(--pm);font-weight:700;}
+.consent{position:fixed;left:14px;right:14px;bottom:14px;z-index:600;display:none;align-items:center;justify-content:space-between;gap:10px;max-width:452px;margin:0 auto;background:var(--bg);border:1px solid var(--pb);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.18);padding:12px;}
+.consent.show{display:flex;}
+.consent p{font-size:13px;color:var(--txm);line-height:1.45;}
+.consent-actions{display:flex;gap:6px;flex-shrink:0;}
+.consent-actions button{min-height:44px;border-radius:12px;padding:10px 12px;font:700 13px 'Nunito',sans-serif;cursor:pointer;}
+.consent-decline{background:var(--bgs);border:1px solid var(--br);color:var(--txm);}
+.consent-accept{background:var(--pm);border:1px solid var(--pm);color:var(--pl);}
 </style>
 </head>
 <body>
@@ -352,7 +370,6 @@ input#photoInput{display:none;}
       <button class="tab" onclick="switchTab('garden')">GARDEN</button>
       <button class="tab" onclick="switchTab('journal')">JOURNAL</button>
       <button class="tab" onclick="switchTab('reminders')">REMIND</button>
-      <button class="tab" onclick="switchTab('calendar')">CAL</button>
       <button class="tab" onclick="switchTab('ask')">ASK 🌿</button>
     </div>
   </div>
@@ -382,7 +399,8 @@ input#photoInput{display:none;}
     <div id="weatherWidget"></div>
     <div class="stats-row" id="statsRow"></div>
     <div class="banner">
-      <div class="banner-top"><h2 id="bannerDate">today</h2><span class="bc" id="bannerCount"></span></div>
+      <div class="banner-top"><h2 id="bannerDate">today</h2><button class="utility-btn" onclick="shareGarden()">share</button></div>
+      <div class="bc" id="bannerCount"></div>
       <div class="chips" id="waterChips"></div>
     </div>
     <p class="st">my plants</p>
@@ -440,12 +458,6 @@ input#photoInput{display:none;}
     </div>
     </div>
   </div>
-  <div class="page" id="tab-calendar">
-    <div class="page-scroll">
-    <div style="height:12px"></div>
-    <div id="calendarContent"></div>
-    </div>
-  </div>
   <div class="page" id="tab-ask">
     <div class="page-scroll" id="askScroll">
       <div style="height:12px"></div>
@@ -468,6 +480,7 @@ input#photoInput{display:none;}
       </div>
       <button class="chat-send" onclick="sendChat()">↑</button>
     </div>
+    <p class="ai-disclosure">Questions and photos sent here are processed by Google Gemini. <a href="/privacy.html">Privacy policy</a></p>
   </div>
 </div>
 
@@ -637,6 +650,14 @@ input#photoInput{display:none;}
       <input class="ob-input" id="sAppName" style="text-align:left;margin:0" placeholder="e.g. Maya's Garden"/>
     </div>
     <div class="settings-section">
+      <span class="settings-label">app style</span>
+      <div class="theme-picks" id="settingsThemePicks">
+        <button class="theme-pick" type="button" data-theme="rose" onclick="pickTheme('rose')">Rose</button>
+        <button class="theme-pick" type="button" data-theme="sage" onclick="pickTheme('sage')">Sage</button>
+        <button class="theme-pick" type="button" data-theme="minimal" onclick="pickTheme('minimal')">Minimal</button>
+      </div>
+    </div>
+    <div class="settings-section">
       <span class="settings-label">your city</span>
       <div style="display:flex;gap:8px;">
         <input class="ob-input" id="sCity" style="text-align:left;margin:0;flex:1" placeholder="city, state or country"/>
@@ -648,6 +669,18 @@ input#photoInput{display:none;}
       <button class="bc2" onclick="closeSettings()">cancel</button>
       <button class="bs" onclick="saveProfileSettings()">save changes</button>
     </div>
+    <div class="utility-row" style="margin-top:12px">
+      <button class="utility-btn" type="button" onclick="exportGardenData()">export my data</button>
+      <a class="utility-btn privacy-link" href="/privacy.html" style="display:flex;align-items:center;text-decoration:none">privacy</a>
+    </div>
+  </div>
+</div>
+
+<div class="consent" id="analyticsConsent" role="dialog" aria-live="polite" aria-label="Analytics choice">
+  <p>Optional anonymous analytics help improve the app.</p>
+  <div class="consent-actions">
+    <button class="consent-decline" type="button" onclick="setAnalyticsConsent('declined')">Decline</button>
+    <button class="consent-accept" type="button" onclick="setAnalyticsConsent('accepted')">Accept</button>
   </div>
 </div>
 
@@ -655,6 +688,41 @@ input#photoInput{display:none;}
 // ── USER PROFILE ──────────────────────────────────────────────────────────────
 const DEFAULT_PROFILE={name:'',appName:'My Garden',city:'',lat:null,lon:null};
 const GEMINI_MODEL_NAME='gemini-2.0-flash-lite';
+const THEMES=['rose','sage','minimal'];
+let chosenTheme='rose';
+
+function readTheme(){
+  const saved=localStorage.getItem('mg_theme');
+  return THEMES.includes(saved)?saved:'rose';
+}
+function applyTheme(theme){
+  chosenTheme=THEMES.includes(theme)?theme:'rose';
+  document.body.dataset.theme=chosenTheme;
+  localStorage.setItem('mg_theme',chosenTheme);
+  document.querySelectorAll('.theme-pick').forEach(btn=>btn.classList.toggle('sel',btn.dataset.theme===chosenTheme));
+}
+function pickTheme(theme){applyTheme(theme);}
+
+function posthogKey(){return document.querySelector('meta[name="posthog-key"]')?.content.trim()||'';}
+function initPostHog(){
+  const key=posthogKey();
+  if(!key||window.posthog?.__loaded)return;
+  window.posthog=window.posthog||[];
+  window.posthog.init=window.posthog.init||function(apiKey,config){window.posthog._i=window.posthog._i||[];window.posthog._i.push([apiKey,config]);};
+  const script=document.createElement('script');
+  script.async=true;
+  script.src='https://us-assets.i.posthog.com/static/array.js';
+  script.onload=()=>{if(window.posthog?.init){window.posthog.init(key,{api_host:'https://us.i.posthog.com',person_profiles:'identified_only',capture_pageview:false});window.posthog.__loaded=true;}};
+  document.head.appendChild(script);
+}
+function setAnalyticsConsent(choice){
+  localStorage.setItem('mg_analytics_consent',choice);
+  document.getElementById('analyticsConsent').classList.remove('show');
+  if(choice==='accepted')initPostHog();
+}
+function captureEvent(name,props={}){
+  try{if(window.posthog?.capture)window.posthog.capture(name,props);}catch{}
+}
 
 function getProfile(){
   try{return Object.assign({},DEFAULT_PROFILE,JSON.parse(localStorage.getItem('mg_profile')||'{}'));}
@@ -681,8 +749,9 @@ let obProfile={...DEFAULT_PROFILE};
 let obLocFound=false;
 
 function showOnboarding(){
-  obStep=0;obProfile={...DEFAULT_PROFILE};obLocFound=false;
+  obStep=0;obProfile={...DEFAULT_PROFILE};obLocFound=false;chosenTheme=readTheme();
   document.getElementById('onboardingBackdrop').style.display='flex';
+  captureEvent('onboarding_started');
   renderObScreen();
 }
 function renderObScreen(){
@@ -701,7 +770,13 @@ function renderObScreen(){
      <div class="ob-dots">${dots}</div>
      <div class="ob-title">name your garden</div>
      <div class="ob-sub">give your plant collection a name — it'll appear at the top of the app.</div>
-     <input class="ob-input" id="obAppName" placeholder="${obProfile.name?obProfile.name+"'s Garden":'My Garden'}" maxlength="40" oninput="obProfile.appName=this.value.trim()"/>
+     <input class="ob-input" id="obAppName" placeholder="${obProfile.name?obProfile.name+"'s Garden":'My Garden'}" maxlength="40" oninput="obProfile.appName=this.value.trim();obValidate()"/>
+     <div class="ob-sub" style="margin:8px 0 6px">pick the style you want to live in</div>
+     <div class="theme-picks">
+       <button class="theme-pick${chosenTheme==='rose'?' sel':''}" type="button" data-theme="rose" onclick="pickTheme('rose')">Rose</button>
+       <button class="theme-pick${chosenTheme==='sage'?' sel':''}" type="button" data-theme="sage" onclick="pickTheme('sage')">Sage</button>
+       <button class="theme-pick${chosenTheme==='minimal'?' sel':''}" type="button" data-theme="minimal" onclick="pickTheme('minimal')">Minimal</button>
+     </div>
      <button class="ob-btn" id="obContinue" onclick="obNext()" disabled>continue →</button>
      <span class="ob-skip" onclick="obFinish()">skip</span>`,
 
@@ -763,8 +838,10 @@ function obFinish(){
   }
   localStorage.setItem('mg_onboarded','1');
   saveProfileData(obProfile);
+  captureEvent('onboarding_completed',{chose_theme:chosenTheme});
   document.getElementById('onboardingBackdrop').style.display='none';
   loadWeather();
+  if(!plants.length)setTimeout(openAddPlant,180);
 }
 async function detectLocationOb(){
   const status=document.getElementById('obLocStatus');
@@ -795,6 +872,7 @@ function openSettings(){
   document.getElementById('sAppName').value=p.appName||'';
   document.getElementById('sCity').value=p.city||'';
   document.getElementById('sLocStatus').textContent='';
+  applyTheme(readTheme());
   document.getElementById('settingsModal').classList.add('open');
 }
 function closeSettings(){document.getElementById('settingsModal').classList.remove('open');}
@@ -943,12 +1021,12 @@ function switchTab(t){
   const page=document.getElementById('tab-'+t);
   page.classList.add('active');
   requestAnimationFrame(()=>requestAnimationFrame(()=>page.classList.add('visible')));
-  const tabMap={'today':'TODAY','garden':'GARDEN','journal':'JOURNAL','reminders':'REMIND','calendar':'CAL','ask':'ASK'};
+  const tabMap={'today':'TODAY','garden':'GARDEN','journal':'JOURNAL','reminders':'REMIND','ask':'ASK'};
   document.querySelectorAll('.tab').forEach(b=>{if(b.textContent.trim().startsWith(tabMap[t]||t.toUpperCase()))b.classList.add('active');});
   if(t==='today')renderToday();
   if(t==='reminders')renderReminders();
   if(t==='journal'){renderQuickWater();renderJournalPlants();renderTimeline();}
-  if(t==='calendar')renderCalendar();
+  captureEvent('page_view',{tab_name:t,is_default:t==='today'});
 }
 
 async function loadWeather(){
@@ -1067,6 +1145,34 @@ function renderGarden(){
   }).join('');
 }
 
+async function shareGarden(){
+  const shareData={title:'Plant Care',text:'I am using this free plant care app to keep my plants on track.',url:location.origin+'/'};
+  captureEvent('share_clicked',{platform:navigator.share?'native':'copy'});
+  try{
+    if(navigator.share){await navigator.share(shareData);return;}
+    await navigator.clipboard.writeText(shareData.url);
+    showStatusToast('link copied');
+  }catch(e){
+    if(e?.name!=='AbortError')showStatusToast('could not share right now');
+  }
+}
+
+function exportGardenData(){
+  try{
+    const data={exportedAt:new Date().toISOString(),plants,logs,settings,profile:getProfile(),theme:readTheme()};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download='plant-care-backup-'+new Date().toISOString().slice(0,10)+'.json';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),0);
+    showStatusToast('backup downloaded');
+  }catch{
+    showStatusToast('could not export data');
+  }
+}
+
 function clearSearch(){
   document.getElementById('plantSearch').value='';
   document.getElementById('searchClear').style.display='none';
@@ -1111,6 +1217,7 @@ function quickWater(id){
   saveP();saveL();renderGarden();renderToday();launchConfetti();
   if(navigator.vibrate)navigator.vibrate(60);
   showUndoToast(prev?.name||'plant');
+  captureEvent('water_logged',{streak_count:getStreak(id),via:'quick_water'});
 }
 
 let dragId=null;
@@ -1216,6 +1323,7 @@ function savePlant(){
   const plant={id:editId||Date.now(),name,type:document.getElementById('fType').value.trim(),hydroponic:selHydro,waterEvery:parseInt(document.getElementById('fWater').value),fertilizeEvery:parseInt(document.getElementById('fFertilize').value)||0,repotEvery:parseInt(document.getElementById('fRepot').value)||0,sun:selSun,notes:document.getElementById('fNotes').value.trim(),lastWatered:existing?existing.lastWatered:today().getTime(),lastFertilized:existing?existing.lastFertilized:null,lastRepotted:existing?existing.lastRepotted:null,photo:currentPhoto||(existing?existing.photo:null),emoji:currentPhoto?null:selEmoji};
   if(editId)plants=plants.map(p=>p.id===editId?plant:p);else plants.push(plant);
   saveP();closePlantModal();closeDetail();renderGarden();renderToday();
+  captureEvent('plant_added',{has_photo:!!plant.photo,is_hydroponic:!!plant.hydroponic,is_first_plant:!editId&&plants.length===1});
 }
 
 function openDetail(id){
@@ -1395,7 +1503,7 @@ function check30DayPrompt(){
 function openLightbox(src){document.getElementById('lightboxImg').src=src;document.getElementById('lightbox').classList.add('open');}
 function closeLightbox(){document.getElementById('lightbox').classList.remove('open');}
 
-function renderCalendar(targetId='calendarContent'){
+function renderCalendar(targetId='todayCalendarContent'){
   const el=document.getElementById(targetId);
   if(!el)return;
   const p=getProfile();
@@ -1489,6 +1597,28 @@ function renderReminders(){
   er.innerHTML=repotPlants.length?repotPlants.slice(0,5).map(p=>careRow(p,daysUntilCare(p,'repot')||0,`every ${p.repotEvery} days`,!p.lastRepotted)).join(''):'<p class="es">no repot schedule set</p>';
 }
 
+function aiUsageKey(){
+  try{
+    const now=new Date();
+    const localDate=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
+    return 'ai_usage_'+localDate;
+  }catch{return'';}
+}
+function getAiUsageToday(){
+  const key=aiUsageKey();
+  if(!key)return 0;
+  return parseInt(localStorage.getItem(key)||'0',10)||0;
+}
+function incrementAiUsage(){
+  const key=aiUsageKey();
+  if(!key)return 0;
+  Object.keys(localStorage).filter(k=>k.startsWith('ai_usage_')&&k!==key).forEach(k=>localStorage.removeItem(k));
+  const next=getAiUsageToday()+1;
+  localStorage.setItem(key,String(next));
+  localStorage.setItem('ai_total_count',String((parseInt(localStorage.getItem('ai_total_count')||'0',10)||0)+1));
+  return next;
+}
+
 let chatPhoto=null;
 function handleChatPhoto(input){
   if(!input.files||!input.files[0])return;
@@ -1527,6 +1657,12 @@ async function sendChat(){
   if(chatPending)return;
   const input=document.getElementById('chatInput');const text=input.value.trim();
   if(!text&&!chatPhoto)return;
+  const used=getAiUsageToday();
+  if(used>=10){
+    addChatMsg('ai',"You've used today's plant advisor. Come back tomorrow.");
+    captureEvent('ai_rate_limited',{daily_count:used});
+    return;
+  }
   chatPending=true;
   const sendBtn=document.querySelector('.chat-send');
   if(sendBtn){sendBtn.disabled=true;sendBtn.style.opacity='0.5';}
@@ -1536,6 +1672,8 @@ async function sendChat(){
   addChatMsg('user',displayText+(chatPhoto?' 📷':''));
   chatHistory.push({role:'user',content:displayText});
   const photoToSend=chatPhoto;
+  const dailyCount=incrementAiUsage();
+  captureEvent('ai_question_sent',{has_photo:!!photoToSend,daily_count:dailyCount,total_count:parseInt(localStorage.getItem('ai_total_count')||'0',10)||0});
   clearChatPhoto();
   const thinking=addChatMsg('thinking','thinking');
   let lastErr=null;
@@ -1546,7 +1684,8 @@ async function sendChat(){
       const userCity=prof.city||'their area';
       const appName=prof.appName||'My Garden';
       const plantContext=plants.length?'They currently grow: '+plants.map(p=>p.name+(p.type?' ('+p.type+')':'')).join(', ')+'. ':'';
-      const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      const chatUrl=location.protocol==='file:'?'https://plant-app-wine.vercel.app/api/chat':'/api/chat';
+      const res=await fetch(chatUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
         max_tokens:1000,
         photo:photoToSend||null,
         system:`You are a plant care advisor built into an app called "${appName}." ${plantContext}The user's name is ${userName} and they are located in ${userCity}. Factor in their local climate when relevant. You have a warm but no-nonsense personality — you genuinely care about the plants thriving, you're encouraging, but you're not afraid to be a little blunt when a plant is being neglected. Think knowledgeable friend who knows their plants. Use the user's name sparingly — only occasionally, not in every message. Keep answers conversational and concise. Use a plant emoji here and there but don't overdo it.`,
@@ -1573,6 +1712,7 @@ async function sendChat(){
 scheduleChecks();
 // Apply profile before loading
 const _prof=getProfile();
+applyTheme(readTheme());
 applyProfile(_prof);
 loadWeather();
 const todayPage=document.getElementById('tab-today');
@@ -1580,6 +1720,17 @@ todayPage.classList.add('active');
 requestAnimationFrame(()=>requestAnimationFrame(()=>todayPage.classList.add('visible')));
 renderGarden();
 renderToday();
+const analyticsChoice=localStorage.getItem('mg_analytics_consent');
+if(analyticsChoice==='accepted')initPostHog();
+if(!analyticsChoice)document.getElementById('analyticsConsent').classList.add('show');
+if(!sessionStorage.getItem('mg_app_opened')){
+  captureEvent('app_first_open',{from_landing:document.referrer.includes(location.origin)});
+  sessionStorage.setItem('mg_app_opened','1');
+}
+window.addEventListener('beforeinstallprompt',()=>captureEvent('install_prompt_shown'));
+window.addEventListener('appinstalled',()=>captureEvent('install_prompt_accepted'));
+window.addEventListener('error',e=>captureEvent('error_triggered',{error_type:e.message||'script_error',feature:'window'}));
+window.addEventListener('unhandledrejection',e=>captureEvent('error_triggered',{error_type:String(e.reason||'promise_rejection'),feature:'promise'}));
 document.querySelectorAll('.backdrop').forEach(b=>{b.addEventListener('click',e=>{if(e.target===b)b.classList.remove('open');});});
 // Show onboarding for new users
 if(!localStorage.getItem('mg_onboarded')){
