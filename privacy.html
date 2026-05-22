@@ -20,7 +20,7 @@ a{color:#993556;font-weight:700;}
 <body>
 <main>
   <h1>Plant Care Privacy Policy</h1>
-  <p class="muted">Last updated: May 20, 2026</p>
+  <p class="muted">Last updated: May 22, 2026</p>
   <div class="card">
     <p>This plant care app is built to work without an account. Your garden data is stored on your device unless you choose to send a photo or question to the plant advisor.</p>
   </div>
@@ -29,7 +29,10 @@ a{color:#993556;font-weight:700;}
   <p>The app stores your plants, care logs, photos, reminder settings, and app preferences in your browser using localStorage and IndexedDB. This data stays on your device and is not stored in an app database.</p>
 
   <h2>Plant advisor and photos</h2>
-  <p>When you use Ask, your question and any attached photo are sent to Google Gemini so it can generate a plant-care answer. Do not upload photos that contain private documents, faces, addresses, or anything you do not want processed by Google.</p>
+  <p>When you use Ask, your question, any attached photo, and limited garden context such as configured plant names, plant types, and your saved location label are sent to Google Gemini so it can generate a plant-care answer. Do not upload photos that contain private documents, faces, addresses, or anything you do not want processed by Google.</p>
+
+  <h2>Weather and location lookups</h2>
+  <p>If you type a city or ZIP code, the app uses Open-Meteo to look up coordinates and weather for that place. If you choose the location button, your browser asks for permission first and the app may use OpenStreetMap Nominatim to turn device coordinates into a city label.</p>
 
   <h2>Analytics</h2>
   <p>If you accept analytics, the app may use PostHog to understand anonymous product usage, such as which tabs are opened and whether common actions work. Analytics are optional. If you decline, PostHog is not initialized.</p>

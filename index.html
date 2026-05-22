@@ -274,8 +274,10 @@ window.addEventListener('DOMContentLoaded', () => {
   const consent = localStorage.getItem('mg_analytics_consent');
   if (consent === 'accepted') initPostHog();
   if (!consent) document.getElementById('analyticsConsent').classList.add('show');
+  let referrerHost = '';
+  try { referrerHost = document.referrer ? new URL(document.referrer).host : ''; } catch(e) {}
   trackLanding('landing_page_view', {
-    referrer: document.referrer || '',
+    referrer_host: referrerHost,
     utm_source: new URLSearchParams(location.search).get('utm_source') || ''
   });
 });

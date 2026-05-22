@@ -2,6 +2,11 @@ const MODEL = 'gemini-2.5-flash-lite';
 const MAX_MESSAGES = 20;
 const MAX_TEXT_CHARS = 6000;
 const MAX_PHOTO_CHARS = 7_200_000;
+const ALLOWED_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif']);
+const RATE_WINDOW_MS = 60_000;
+const RATE_LIMIT_PER_WINDOW = 18;
+const requestWindows = globalThis.__plantChatRequestWindows || new Map();
+globalThis.__plantChatRequestWindows = requestWindows;
 
 function allowSameOrigin(req, res) {
   const origin = req.headers?.origin;
@@ -25,6 +30,28 @@ function send(req, res, status, data) {
 
 function textContent(text) {
   return { content: [{ type: 'text', text }] };
+}
+
+function clientKey(req) {
+  const forwarded = String(req.headers?.['x-forwarded-for'] || '').split(',')[0].trim();
+  return forwarded || req.socket?.remoteAddress || 'unknown';
+}
+
+function isRateLimited(req) {
+  const now = Date.now();
+  const key = clientKey(req);
+  const current = requestWindows.get(key);
+  if (!current || now - current.startedAt >= RATE_WINDOW_MS) {
+    requestWindows.set(key, { startedAt: now, count: 1 });
+    return false;
+  }
+  current.count += 1;
+  if (requestWindows.size > 500) {
+    for (const [bucketKey, bucket] of requestWindows) {
+      if (now - bucket.startedAt >= RATE_WINDOW_MS) requestWindows.delete(bucketKey);
+    }
+  }
+  return current.count > RATE_LIMIT_PER_WINDOW;
 }
 
 function dedupeConsecutive(messages = []) {
@@ -53,7 +80,7 @@ function toGeminiPart(message) {
 
 function photoPart(photo) {
   const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(photo || '');
-  if (!match) return null;
+  if (!match || !ALLOWED_PHOTO_TYPES.has(match[1].toLowerCase())) return null;
   return { inlineData: { mimeType: match[1], data: match[2] } };
 }
 
@@ -62,6 +89,9 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return send(req, res, 200, textContent('Use POST to ask a plant question.'));
 
   try {
+    if (isRateLimited(req)) {
+      return send(req, res, 200, textContent('Plant advisor is busy for a minute. Try again soon.'));
+    }
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
     const { system = '', messages = [], max_tokens = 1000, photo = null } = body;
     const systemText = typeof system === 'string' ? system.slice(0, MAX_TEXT_CHARS) : '';
@@ -69,6 +99,9 @@ export default async function handler(req, res) {
     if (!key) return send(req, res, 200, textContent('Plant advisor is not configured yet.'));
     if (typeof photo === 'string' && photo.length > MAX_PHOTO_CHARS) {
       return send(req, res, 200, textContent('That photo is too large. Try a smaller image.'));
+    }
+    if (photo && !photoPart(photo)) {
+      return send(req, res, 200, textContent('Use a JPG, PNG, WEBP, GIF, or HEIC plant photo.'));
     }
 
     const cleanMessages = dedupeConsecutive(messages);

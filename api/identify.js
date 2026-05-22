@@ -1,3 +1,6 @@
+const MAX_PHOTO_CHARS = 7_200_000;
+const ALLOWED_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif']);
+
 function allowSameOrigin(req, res) {
   const origin = req.headers?.origin;
   const host = req.headers?.host;
@@ -10,122 +13,82 @@ function allowSameOrigin(req, res) {
   } catch {}
 }
 
-export default async function handler(req, res) {
-  if (req.method === 'OPTIONS') {
-    allowSameOrigin(req, res);
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    return res.status(200).end();
+function supportedPhoto(photo) {
+  const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(photo || '');
+  return !!match && ALLOWED_PHOTO_TYPES.has(match[1].toLowerCase()) && photo.length <= MAX_PHOTO_CHARS;
+}
+
+function parseBody(body) {
+  if (!body) return {};
+  if (typeof body !== 'string') return body;
+  try {
+    return JSON.parse(body);
+  } catch {
+    return {};
   }
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+}
+
+export default async function handler(req, res) {
   allowSameOrigin(req, res);
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
 
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed', name: null });
   if (process.env.ENABLE_PLANT_IDENTIFY !== '1') {
     return res.status(404).json({ error: 'Plant identification is disabled', name: null });
   }
-
-  const apiKey = process.env.PLANTID_API_KEY;
-  if (!apiKey) {
-    console.error('[identify] PLANTID_API_KEY not set in environment');
-    return res.status(500).json({ error: 'API key not configured', name: null });
+  if (!process.env.PLANTID_API_KEY) {
+    return res.status(503).json({ error: 'Plant identification is not configured', name: null });
   }
 
-  const { photo } = req.body;
-  if (!photo) {
-    console.error('[identify] No photo in request body');
-    return res.status(400).json({ error: 'No photo provided', name: null });
-  }
-
-  // Validate it's a base64 image
-  if (!photo.startsWith('data:image/')) {
-    console.error('[identify] Invalid photo format — expected base64 data URL');
-    return res.status(400).json({ error: 'Invalid photo format', name: null });
+  const { photo } = parseBody(req.body);
+  if (!photo) return res.status(400).json({ error: 'No photo provided', name: null });
+  if (!supportedPhoto(photo)) {
+    return res.status(400).json({ error: 'Use a JPG, PNG, WEBP, GIF, or HEIC photo under 5 MB', name: null });
   }
 
   try {
-    console.log('[identify] Sending request to Plant.id...');
-
     const response = await fetch(
       'https://plant.id/api/v3/identification?details=common_names,watering,best_light_condition,description&language=en',
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Api-Key': apiKey
+          'Api-Key': process.env.PLANTID_API_KEY
         },
-        body: JSON.stringify({
-          images: [photo],
-          similar_images: false
-        })
+        body: JSON.stringify({ images: [photo], similar_images: false })
       }
     );
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 429) return res.status(429).json({ name: null, error: 'rate_limit' });
+    if (!response.ok) return res.status(502).json({ name: null, error: 'Identification is unavailable right now' });
 
-    const data = await response.json();
+    if (!data.result?.is_plant?.binary) return res.status(200).json({ name: null, reason: 'not_a_plant' });
+    const top = data.result?.classification?.suggestions?.[0];
+    if (!top) return res.status(200).json({ name: null, reason: 'no_suggestions' });
 
-    // Log full response for debugging
-    console.log('[identify] Plant.id status:', response.status);
-    console.log('[identify] Plant.id response keys:', Object.keys(data));
-
-    if (!response.ok) {
-      console.error('[identify] Plant.id HTTP error:', response.status, data);
-      // Rate limit
-      if (response.status === 429) {
-        return res.status(429).json({ name: null, error: 'rate_limit' });
-      }
-      return res.status(500).json({ name: null, error: data.message || 'Identification failed' });
-    }
-
-    // Check if it's actually a plant
-    const isPlant = data.result?.is_plant?.binary;
-    const isPlantProb = data.result?.is_plant?.probability || 0;
-    console.log('[identify] Is plant:', isPlant, 'probability:', isPlantProb);
-
-    if (!isPlant) {
-      console.log('[identify] Image does not appear to be a plant');
-      return res.status(200).json({ name: null, reason: 'not_a_plant' });
-    }
-
-    const suggestions = data.result?.classification?.suggestions;
-    if (!suggestions || !suggestions.length) {
-      console.log('[identify] No suggestions returned');
-      return res.status(200).json({ name: null, reason: 'no_suggestions' });
-    }
-
-    const top = suggestions[0];
     const details = top.details || {};
-    console.log('[identify] Top suggestion:', top.name, 'probability:', top.probability);
-
-    // Common name — prefer common_names array, fall back to scientific name
     const name = details.common_names?.[0] || top.name || null;
-    if (!name) {
-      console.log('[identify] No name found in top suggestion');
-      return res.status(200).json({ name: null });
-    }
+    if (!name) return res.status(200).json({ name: null });
 
-    // Map watering — Plant.id returns min/max times per month
     const waterMin = details.watering?.min ?? 2;
     const waterMax = details.watering?.max ?? 4;
     const timesPerMonth = (waterMin + waterMax) / 2;
     const waterEveryRaw = Math.round(30 / Math.max(timesPerMonth, 0.5));
-    const validOptions = [1, 2, 3, 5, 7, 10, 14, 21, 30];
-    const waterEvery = validOptions.reduce((a, b) =>
+    const validWaterIntervals = [1, 2, 3, 5, 7, 10, 14, 21, 30];
+    const waterEvery = validWaterIntervals.reduce((a, b) =>
       Math.abs(b - waterEveryRaw) < Math.abs(a - waterEveryRaw) ? b : a
     );
-    console.log('[identify] Watering: times/month=', timesPerMonth, '→ every', waterEvery, 'days');
 
-    // Map light condition
-    const lightRaw = (details.best_light_condition || '').toLowerCase();
+    const lightRaw = String(details.best_light_condition || '').toLowerCase();
     let light = 'indirect';
     if (lightRaw.includes('full sun') || lightRaw.includes('direct')) light = 'direct window';
     else if (lightRaw.includes('bright')) light = 'bright indirect';
     else if (lightRaw.includes('low') || lightRaw.includes('shade')) light = 'low light';
-    console.log('[identify] Light:', lightRaw, '→', light);
 
-    // Derive type from name and description text
-    const descText = (details.description?.value || '').toLowerCase();
-    const nameLower = name.toLowerCase();
-    const combined = nameLower + ' ' + descText;
+    const descText = String(details.description?.value || '').toLowerCase();
+    const combined = name.toLowerCase() + ' ' + descText;
     let type = 'other';
     if (/succulent|aloe|echeveria|sedum|haworthia|crassula/.test(combined)) type = 'succulent';
     else if (/cactus|cacti/.test(combined)) type = 'cactus';
@@ -136,24 +99,18 @@ export default async function handler(req, res) {
     else if (/grass|bamboo/.test(combined)) type = 'grass';
     else if (/tree|shrub/.test(combined)) type = 'tree';
     else if (/flower|bloom|rose|orchid|lily|daisy|tulip|petunia/.test(combined)) type = 'flowering';
-    console.log('[identify] Type derived:', type);
 
-    // Short care note from description — first sentence under 80 chars
     let notes = '';
     if (details.description?.value) {
-      const sentences = details.description.value
+      const sentence = details.description.value
         .split(/[.!?]/)
         .map(s => s.trim())
-        .filter(s => s.length > 10 && s.length < 80);
-      if (sentences[0]) notes = sentences[0] + '.';
+        .find(s => s.length > 10 && s.length < 80);
+      if (sentence) notes = sentence + '.';
     }
 
-    const result = { name, type, waterEvery, light, notes };
-    console.log('[identify] Final result:', result);
-    return res.status(200).json(result);
-
-  } catch (err) {
-    console.error('[identify] Handler error:', err.message, err.stack);
-    return res.status(500).json({ name: null, error: err.message });
+    return res.status(200).json({ name, type, waterEvery, light, notes });
+  } catch {
+    return res.status(502).json({ name: null, error: 'Identification is unavailable right now' });
   }
 }

@@ -1,5 +1,5 @@
-const CACHE = 'plant-care-v8';
-const ASSETS = ['/', '/index.html', '/app/', '/app/index.html', '/manifest.json', '/privacy.html'];
+const CACHE = 'plant-care-v9';
+const ASSETS = ['/', '/index.html', '/app/', '/app/index.html', '/manifest.json', '/privacy.html', '/icon-192.png', '/icon-512.png'];
 
 // ── INSTALL: cache app shell ──────────────────────────────────────────────────
 self.addEventListener('install', e => {
@@ -129,6 +129,10 @@ async function checkWateringReminders() {
 }
 
 // ── READ PLANT DATA FROM LOCALSTORAGE VIA INDEXEDDB BRIDGE ───────────────────
+function parseBridgeValue(value) {
+  try { return JSON.parse(value); } catch { return null; }
+}
+
 function getStoredPlantData() {
   return new Promise(resolve => {
     try {
@@ -146,7 +150,7 @@ function getStoredPlantData() {
         keys.forEach(k => {
           const r = store.get(k);
           r.onsuccess = () => {
-            results[k] = r.result ? JSON.parse(r.result.value) : null;
+            results[k] = r.result ? parseBridgeValue(r.result.value) : null;
             if (--pending === 0) resolve({
               plants: results['mg_plants'] || [],
               logs: results['mg_logs'] || [],
